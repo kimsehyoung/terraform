@@ -1,0 +1,13 @@
+replicaCount: ${replicas}
+
+image:
+  repository: ${image_repository}
+
+serviceAccount:
+  create: ${sa_create}
+  namespace: ${sa_namespace}
+  name: ${sa_name}
+  annotations:
+    eks.amazonaws.com/role-arn: ${sa_role_arn}
+
+clusterName: ${cluster_name}

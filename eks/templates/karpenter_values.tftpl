@@ -1,0 +1,39 @@
+replicas: ${replicas}
+
+additionalLabels: {}
+
+serviceAccount:
+  create: ${sa_create}
+  namespace: ${sa_namespace}
+  name: ${sa_name}
+  annotations:
+    eks.amazonaws.com/role-arn: ${sa_role_arn}
+
+
+affinity:
+  nodeAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      nodeSelectorTerms:
+      - matchExpressions:
+        - key: karpenter.sh/provisioner-name
+          operator: DoesNotExist
+      - matchExpressions:
+        - key: alpha.eksctl.io/nodegroup-name
+          operator: In
+          values:
+          - ${node_group_name}
+
+controller:
+  resources:
+    requests:
+      cpu: ${karpenter_resources.requests.cpu}
+      memory: ${karpenter_resources.requests.memory}
+    limits:
+      cpu: ${karpenter_resources.limits.cpu}
+      memory: ${karpenter_resources.limits.memory}
+
+settings:
+  batchIdleDuration: ${karpenter_batch.idle_duration}
+  batchMaxDuration: ${karpenter_batch.max_duration}
+  clusterName: ${cluster_name}
+  clusterEndpoint: ${cluster_endpoint}
