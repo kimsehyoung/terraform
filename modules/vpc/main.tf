@@ -36,6 +36,7 @@ resource "aws_vpc" "this" {
 ################################################################################
 # Internet Gateway
 ################################################################################
+
 resource "aws_internet_gateway" "this" {
     vpc_id = aws_vpc.this.id
 
@@ -56,7 +57,10 @@ resource "aws_subnet" "public" {
     cidr_block = local.public_subnet_cidrs[count.index]
 
     tags = merge(
-        { "Name" = format("${var.name}-public-%s", local.azs[count.index]) },
+        {
+            "Name" = format("${var.name}-public-%s", local.azs[count.index])
+            "kubernetes.io/role/elb" = 1
+        },
         var.additional_tags
     )
 }
@@ -82,6 +86,7 @@ resource "aws_route_table_association" "public" {
     route_table_id = aws_route_table.public.id
 }
 
+
 ################################################################################
 # Private Subnets
 ################################################################################
@@ -93,13 +98,16 @@ resource "aws_subnet" "private" {
     cidr_block        = local.private_subnet_cidrs[count.index]
 
     tags = merge(
-        { "Name" = format("${var.name}-private-%s", local.azs[count.index]) },
+        {
+            "Name" = format("${var.name}-private-%s", local.azs[count.index])
+            "karpenter.sh/discovery" = "${var.name}"
+        },
         var.additional_tags
     )
 }
 
 resource "aws_route_table" "private" {
-    count = length(aws_subnet.private[*].id)
+    count = length(aws_nat_gateway.this[*].id)
 
     vpc_id = aws_vpc.this.id
     route {
@@ -108,7 +116,7 @@ resource "aws_route_table" "private" {
     }
 
     tags = merge(
-        { "Name" = format("${var.name}-private-%s", local.azs[count.index]) },
+        { "Name" = var.single_nat_gateway ? "${var.name}-private" : format("${var.name}-private-%s", local.azs[count.index])},
         var.additional_tags
     )
 }
@@ -117,7 +125,7 @@ resource "aws_route_table_association" "private" {
     count = length(aws_subnet.private[*].id)
 
     subnet_id      = element(aws_subnet.private[*].id, count.index)
-    route_table_id = element(aws_route_table.private[*].id, count.index)
+    route_table_id = element(aws_route_table.private[*].id, var.single_nat_gateway ? 0 : count.index)
 }
 
 ################################################################################
@@ -135,6 +143,22 @@ resource "aws_subnet" "intra" {
         { "Name" = format("${var.name}-intra-%s", local.azs[count.index]) },
         var.additional_tags
     )
+}
+
+resource "aws_route_table" "intra" {
+    vpc_id = aws_vpc.this.id
+
+    tags = merge(
+        { "Name" = "${var.name}-intra" },
+        var.additional_tags
+    )
+}
+
+resource "aws_route_table_association" "intra" {
+    count = length(aws_subnet.intra[*].id)
+
+    subnet_id      = element(aws_subnet.intra[*].id, count.index)
+    route_table_id = aws_route_table.intra.id
 }
 
 ################################################################################
@@ -159,12 +183,10 @@ resource "aws_db_subnet_group" "database" {
 }
 
 resource "aws_route_table" "database" {
-    count = length(aws_subnet.database[*].id)
-
     vpc_id = aws_vpc.this.id
 
     tags = merge(
-        { "Name" = format("${var.name}-database-%s", local.azs[count.index]) },
+        { "Name" = "${var.name}-database" },
         var.additional_tags
     )
 }
@@ -173,7 +195,7 @@ resource "aws_route_table_association" "database" {
     count = length(aws_subnet.database[*].id)
 
     subnet_id      = element(aws_subnet.database[*].id, count.index)
-    route_table_id = element(aws_route_table.database[*].id, count.index)
+    route_table_id = aws_route_table.database.id
 }
 
 ################################################################################
@@ -201,4 +223,15 @@ resource "aws_nat_gateway" "this" {
         var.additional_tags
     )
     depends_on = [aws_eip.this]
+}
+
+################################################################################
+# Security groups
+################################################################################
+resource "aws_default_security_group" "default" {
+    vpc_id = aws_vpc.this.id
+    tags = merge(
+        { "Name" = "${var.name}-default" },
+        var.additional_tags
+    )
 }

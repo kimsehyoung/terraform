@@ -18,7 +18,7 @@ affinity:
         - key: karpenter.sh/provisioner-name
           operator: DoesNotExist
       - matchExpressions:
-        - key: alpha.eksctl.io/nodegroup-name
+        - key: eks.amazonaws.com/nodegroup
           operator: In
           values:
           - ${node_group_name}
@@ -37,3 +37,4 @@ settings:
   batchMaxDuration: ${karpenter_batch.max_duration}
   clusterName: ${cluster_name}
   clusterEndpoint: ${cluster_endpoint}
+  interruptionQueue: ${cluster_name}

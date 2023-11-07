@@ -1,3 +1,8 @@
+variable "additional_tags" {
+    description = "Additional resource tags"
+    type        = map(string)
+    default     = {}
+}
 ################################################################################
 # EKS Cluster
 ################################################################################
@@ -22,7 +27,7 @@ variable "intra_subnet_ids" {
 variable "endpoint_private_access" {
     description = "Indicates whether or not the Amazon EKS private API server endpoint is enabled"
     type        = bool
-    default     = false
+    default     = true
 }
 
 variable "endpoint_public_access" {
@@ -35,6 +40,37 @@ variable "endpoint_public_access_cidrs" {
     description = "List of CIDR blocks which can access the Amazon EKS public API server endpoint"
     type        = list(string)
     default     = ["0.0.0.0/0"]
+}
+
+variable "cluster_additional_security_group_rules" {
+    description = "List of additional security group rules to add to the cluster security group created. Set `source_node_security_group = true` inside rules to set the `node_security_group` as source"
+    type        = any
+    default     = {}
+}
+
+################################################################################
+# EKS add-ons
+################################################################################
+
+variable "coredns_replicas" {
+    description = "The replicas of CoreDNS"
+    type        = number
+    default     = 2
+}
+
+variable "coredns_resources" {
+    description = "The resources of CoreDNS"
+    type        = map(map(string))
+    default     =  {
+        requests = {
+            cpu    = "200m",
+            memory = "128Mi"
+        },
+        limits = {
+            cpu    = "400m",
+            memory = "256Mi"
+        }
+    }
 }
 
 ################################################################################
@@ -92,6 +128,11 @@ variable "node_group_labels" {
 ################################################################################
 # Karpenter
 ################################################################################
+variable "vpc_id" {
+    description = "VPC ID"
+    type        = string
+}
+
 variable "karpenter_namespace" {
     description = "The namespace of Karpenter"
     type        = string

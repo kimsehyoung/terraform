@@ -1,0 +1,25 @@
+{
+    "replicaCount": ${replicas},
+    "resources": {
+        "requests": {
+            "cpu": "${resources.requests.cpu}",
+            "memory": "${resources.requests.memory}"
+        },
+        "limits": {
+            "cpu": "${resources.limits.cpu}",
+            "memory": "${resources.limits.memory}"
+        }
+    },
+    "topologySpreadConstraints": [
+        {
+            "maxSkew": 1,
+            "topologyKey": "topology.kubernetes.io/zone",
+            "whenUnsatisfiable": "ScheduleAnyway",
+            "labelSelector": {
+                "matchLabels": {
+                  "eks.amazonaws.com/nodegroup": "${node_group_name}"
+                }
+            }
+        }
+    ]
+}

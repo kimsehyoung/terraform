@@ -4,8 +4,8 @@ output "cluster_certificate_authority_data" {
 }
 
 output "cluster_name" {
-    description = "The name of the EKS cluster"
-    value       = aws_eks_cluster.this.name
+    description = "Name of the EKS cluster"
+    value       = aws_eks_cluster.this.id
 }
 
 output "cluster_endpoint" {
@@ -26,4 +26,9 @@ output "oidc_provider" {
 output "oidc_provider_arn" {
     description = "The ARN of the OIDC Provider if `enable_irsa = true`"
     value       = aws_iam_openid_connect_provider.eks_cluster.arn
+}
+
+output "node_role_name" {
+    description = "Name of the worker node role"
+    value       = aws_iam_role.node_by_karpenter.name
 }

@@ -23,6 +23,7 @@ variable "parameter_group_name" {
 variable "instance_class" {
     description = "The instance type of the RDS instance"
     type        = string
+    default     = "db.t4g.large"
 }
 
 variable "multi_az" {
