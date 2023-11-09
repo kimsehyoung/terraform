@@ -60,6 +60,9 @@ resource "aws_eks_addon" "efs-csi-driver" {
     addon_name   = "aws-efs-csi-driver"
     service_account_role_arn = aws_iam_role.efs_csi_driver.arn
     resolve_conflicts_on_create = "OVERWRITE"
+
+    configuration_values = templatefile("${path.module}/templates/addon_efs_csi_controller.tftpl", {
+    })
 }
 
 ################################################################################

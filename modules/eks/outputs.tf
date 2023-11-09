@@ -28,6 +28,11 @@ output "oidc_provider_arn" {
     value       = aws_iam_openid_connect_provider.eks_cluster.arn
 }
 
+output "node_group_name" {
+    description = "The Name of the node group that critical components(karpenter) exist"
+    value       = aws_eks_node_group.this.node_group_name
+}
+
 output "node_role_name" {
     description = "Name of the worker node role"
     value       = aws_iam_role.node_by_karpenter.name

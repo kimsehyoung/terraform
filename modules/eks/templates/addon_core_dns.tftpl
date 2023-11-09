@@ -10,6 +10,13 @@
             "memory": "${resources.limits.memory}"
         }
     },
+    "tolerations": [
+        {
+            "key": "karpenter",
+            "operator": "Exists",
+            "effect": "NoSchedule"
+        }
+    ],
     "topologySpreadConstraints": [
         {
             "maxSkew": 1,

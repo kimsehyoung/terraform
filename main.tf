@@ -53,16 +53,14 @@ resource "kubectl_manifest" "karpenter_nodeclass" {
         role = module.eks.node_role_name
         selector_tag = module.eks.cluster_name
     })
-
-    depends_on = [module.eks]
 }
 
 resource "kubectl_manifest" "karpenter_nodepool" {
     yaml_body = templatefile("./templates/karpenter_nodepool.tftpl", {
         name = "${local.name}-general"
         nodeclass_name = kubectl_manifest.karpenter_nodeclass.name
-        limit_cpu = "12"
-        limit_memory = "32Gi"
+        limit_cpu = "30"
+        limit_memory = "64Gi"
     })
 }
 
@@ -105,6 +103,7 @@ module "efs" {
     vpc_cidr           = local.vpc_cidr
     private_subnet_ids = module.vpc.private_subnets.ids
 
+    node_group_name          = module.eks.node_group_name
     oidc_provider            = module.eks.oidc_provider
     oidc_provider_arn        = module.eks.oidc_provider_arn
 }

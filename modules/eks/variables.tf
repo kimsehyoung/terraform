@@ -51,7 +51,6 @@ variable "cluster_additional_security_group_rules" {
 ################################################################################
 # EKS add-ons
 ################################################################################
-
 variable "coredns_replicas" {
     description = "The replicas of CoreDNS"
     type        = number
@@ -94,23 +93,18 @@ variable "node_group_ami_type" {
     default     = null
 }
 
-
-variable "node_group_desired_size" {
-    description = "Desired number of nodes"
-    type        = number
-    default     = 1
-}
-
-variable "node_group_min_size" {
-    description = "Minimum number of nodes"
-    type        = number
-    default     = 1
-}
-
-variable "node_group_max_size" {
-    description = "Maximum number of nodes"
-    type        = number
-    default     = 2
+variable "scaling_config" {
+    description = "Scaling settings of node group that critical components(karpenter) exist"
+    type        = object({
+        desired_size = number
+        min_size     = number
+        max_size     = number
+    })
+    default     = {
+        desired_size = 1
+        min_size     = 1
+        max_size     = 2
+    }
 }
 
 variable "node_group_disk_size" {
@@ -120,9 +114,18 @@ variable "node_group_disk_size" {
 }
 
 variable "node_group_labels" {
-    description = "Key-value map of Kubernetes labels"
+    description = "Node Group's labels that that critical components(karpenter) exist"
     type        = map(string)
     default     = null
+}
+
+variable "node_group_taints" {
+    description = "Node Group's taints that critical components(karpenter) exist"
+    type        = list(any)
+    default     = [{
+        key    = "karpenter"
+        effect = "NO_SCHEDULE"
+    }]
 }
 
 ################################################################################

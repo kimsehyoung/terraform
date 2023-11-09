@@ -9,19 +9,28 @@ serviceAccount:
   annotations:
     eks.amazonaws.com/role-arn: ${sa_role_arn}
 
-
 affinity:
   nodeAffinity:
     requiredDuringSchedulingIgnoredDuringExecution:
       nodeSelectorTerms:
       - matchExpressions:
-        - key: karpenter.sh/provisioner-name
+        - key: karpenter.sh/nodepool
           operator: DoesNotExist
       - matchExpressions:
         - key: eks.amazonaws.com/nodegroup
           operator: In
           values:
           - ${node_group_name}
+
+tolerations:
+  - key: karpenter
+    operator: Exists
+    effect: NoSchedule
+
+topologySpreadConstraints:
+  - maxSkew: 1
+    topologyKey: topology.kubernetes.io/zone
+    whenUnsatisfiable: ScheduleAnyway
 
 controller:
   resources:

@@ -148,7 +148,7 @@ resource "aws_iam_role_policy_attachment" "eks_cluster" {
 
 # Additional security groups
 resource "aws_security_group" "control_plane" {
-    name = "controlplane-${var.cluster_name}"
+    name = "${var.cluster_name}-controlplane-sg"
 	description = "Restricting cluster traffic between the control plane and worker nodes. (The cluster SG is created automatically allows unfettered traffic.)"
 	vpc_id = var.vpc_id
 
@@ -174,7 +174,7 @@ resource "aws_security_group_rule" "control_plane" {
 }
 
 resource "aws_security_group" "worker_node" {
-    name = "worker_node-${var.cluster_name}"
+    name = "${var.cluster_name}-node-sg"
     description = "Shared security group of worker nodes"
     vpc_id      = var.vpc_id
 
@@ -271,12 +271,20 @@ resource "aws_eks_node_group" "this" {
     disk_size       = var.node_group_disk_size
 
     scaling_config {
-        desired_size    = var.node_group_desired_size
-        min_size        = var.node_group_min_size
-        max_size        = var.node_group_max_size
+        desired_size = var.scaling_config.desired_size
+        min_size     = var.scaling_config.min_size
+        max_size     = var.scaling_config.max_size
     }
-
+    dynamic "taint" {
+        for_each = var.node_group_taints
+        content {
+          key    = taint.value.key
+          value  = try(taint.value.value, null)
+          effect = taint.value.effect
+        }
+}
     labels = var.node_group_labels
+
     depends_on = [aws_iam_role_policy_attachment.eks_node_group]
 }
 
@@ -299,7 +307,7 @@ resource "aws_eks_addon" "essentials" {
 # aws-auth
 # https://karpenter.sh/docs/getting-started/migrating-from-cas/#update-aws-auth-configmap
 ################################################################################
-resource "kubernetes_config_map_v1_data" "aws_auth" {
+resource "kubernetes_config_map_v1" "aws_auth" {
     metadata {
         name      = "aws-auth"
         namespace = "kube-system"
@@ -315,8 +323,7 @@ resource "kubernetes_config_map_v1_data" "aws_auth" {
                 ]}
         ])
     }
-    force = true
-}
+    }
 
 ################################################################################
 # Karpenter
@@ -450,11 +457,12 @@ resource "helm_release" "aws_load_balancer_controller" {
     values = [
         templatefile("${path.module}/templates/aws_load_balancer_controller_values.tftpl", {
             image_repository = "602401143452.dkr.ecr.ap-northeast-2.amazonaws.com/amazon/aws-load-balancer-controller"
-            replicas         = var.aws_load_balancer_controller_replicas
             sa_create        = true
             sa_namespace     = var.aws_load_balancer_controller_namespace
             sa_name          = "${var.aws_load_balancer_controller_name}-sa"
             sa_role_arn      = aws_iam_role.aws_load_balancer_controller.arn
+            replicas         = var.aws_load_balancer_controller_replicas
+            node_group_name  = aws_eks_node_group.this.node_group_name
             cluster_name     = var.cluster_name
         })
     ]
