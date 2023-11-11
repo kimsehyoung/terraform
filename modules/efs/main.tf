@@ -4,7 +4,7 @@
 # https://docs.aws.amazon.com/efs/latest/ug/efs-access-points.html#enforce-root-directory-access-point
 ################################################################################
 resource "aws_security_group" "efs" {
-    name   = "${var.name}-efs-sg"
+    name   = "${var.cluster_name}-efs-sg"
     vpc_id = var.vpc_id
 
     ingress {
@@ -25,7 +25,7 @@ resource "aws_security_group" "efs" {
 # EFS
 ################################################################################
 resource "aws_efs_file_system" "this" {
-	creation_token = "${var.name}-aws-efs"
+	creation_token = "${var.cluster_name}-aws-efs"
 }
 
 resource "aws_efs_mount_target" "this" {
@@ -40,12 +40,12 @@ resource "aws_efs_mount_target" "this" {
 # EFS CSI Driver Add-on
 ################################################################################
 resource "aws_iam_policy" "efs_csi_driver" {
-    name = "EKS_EFS_CSI_DriverPolicy-${var.name}"
+    name = "EKS_EFS_CSI_DriverPolicy-${var.cluster_name}"
     policy = templatefile("${path.module}/templates/eks_efs_csi_driver_policy.tftpl", {})
 }
 
 resource "aws_iam_role" "efs_csi_driver" {
-    name = "EKS_EFS_CSI_DriverRole-${var.name}"
+    name = "EKS_EFS_CSI_DriverRole-${var.cluster_name}"
     assume_role_policy = templatefile("${path.module}/templates/assume_role_oidc.tftpl", {
         oidc_provider     = var.oidc_provider
         oidc_provider_arn = var.oidc_provider_arn
@@ -70,7 +70,7 @@ resource "aws_eks_addon" "efs-csi-driver" {
 ################################################################################
 resource "kubernetes_storage_class" "efs" {
     metadata {
-        name = "${var.name}-efs-sc"
+        name = "${var.cluster_name}-efs-sc"
     }
     storage_provisioner = "efs.csi.aws.com"
     reclaim_policy      = var.storage_class_reclaim_policy

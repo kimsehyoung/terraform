@@ -1,7 +1,7 @@
 locals {
     aws_profile = "profile"
     aws_region  = "ap-northeast-2"
-    name        = "Hello"
+    name        = "hello"
     vpc_cidr    = "10.0.0.0/16"
     
     additional_tags = {
@@ -42,6 +42,7 @@ module "eks" {
     aws_load_balancer_controller_version = "1.6.2"
 
     additional_tags   = local.additional_tags
+    depends_on = [module.vpc]
 }
 
 ################################################################################
@@ -53,6 +54,7 @@ resource "kubectl_manifest" "karpenter_nodeclass" {
         role = module.eks.node_role_name
         selector_tag = module.eks.cluster_name
     })
+    depends_on = [module.eks]
 }
 
 resource "kubectl_manifest" "karpenter_nodepool" {
@@ -62,6 +64,7 @@ resource "kubectl_manifest" "karpenter_nodepool" {
         limit_cpu = "30"
         limit_memory = "64Gi"
     })
+    depends_on = [module.eks]
 }
 
 resource "kubectl_manifest" "deployment_test" {
@@ -91,6 +94,7 @@ module "rds" {
     db_subnet_group_name = module.vpc.database_subnet_group_name
 
     skip_final_snapshot = true
+    depends_on = [module.vpc]
 }
 
 module "efs" {
@@ -106,4 +110,5 @@ module "efs" {
     node_group_name          = module.eks.node_group_name
     oidc_provider            = module.eks.oidc_provider
     oidc_provider_arn        = module.eks.oidc_provider_arn
+    depends_on = [module.eks]
 }

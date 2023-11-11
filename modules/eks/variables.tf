@@ -42,12 +42,6 @@ variable "endpoint_public_access_cidrs" {
     default     = ["0.0.0.0/0"]
 }
 
-variable "cluster_additional_security_group_rules" {
-    description = "List of additional security group rules to add to the cluster security group created. Set `source_node_security_group = true` inside rules to set the `node_security_group` as source"
-    type        = any
-    default     = {}
-}
-
 ################################################################################
 # EKS add-ons
 ################################################################################
@@ -182,6 +176,36 @@ variable "karpenter_batch" {
         idle_duration = "2s"
         max_duration  = "10s"
     }
+}
+
+variable "node_security_group_additional_rules" {
+    description = "Rules to allow communications within worker nodes(by karpenter)"
+    type        = any
+    default     = {
+        ingress_self_default = {
+            description = "Default Rules"
+            protocol    = "tcp"
+            from_port   = 1025
+            to_port     = 65535
+            type        = "ingress"
+            self        = true
+        }
+    }
+}
+
+################################################################################
+# Kubernetes Metrics Server
+################################################################################
+variable "metrics_server_version" {
+    description = "The version of k8s metrics server (Default to 'the latest release')"
+    type        = string
+    default     = null
+}
+
+variable "metrics_server_replicas" {
+    description = "The replicas of k8s metrics server"
+    type        = number
+    default     = 2
 }
 
 ################################################################################

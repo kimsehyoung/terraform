@@ -18,101 +18,43 @@ locals {
             })
         }
     }
-
+    # Rules not added due to shared cluster_security_group for control communications between control plane and nodes(node group).
+    # Karpenter webhook: 8443/tcp
+    # AWS Load Balancer Controller: 9443/tcp
+    # Kubernetes metrics server: 4443/tcp
+    cluster_security_group_rules = {
+        ingress_self_coredns_tcp = {
+            description = "Allow CoreDNS TCP from nodes(by karpenter) to nodes(by node group) for service discovery"
+            type        = "ingress"
+            from_port   = 53
+            to_port     = 53
+            protocol    = "tcp"
+        }
+        ingress_self_coredns_udp = {
+            description = "Allow CoreDNS UDP from nodes(by karpenter) to nodes(by node group) for service discovery"
+            type        = "ingress"
+            from_port   = 53
+            to_port     = 53
+            protocol    = "udp"
+        }
+    }
     control_plane_security_group_rules = {
-        ingress_nodes_443 = {
-            description = "Allows the kubelets to communicate with the Kubernetes API server from worker node SG."
+        ingress_nodes_api_server = {
+            description = "Allow the kubelets to communicate with k8s API server from worker nodes"
             type = "ingress"
             from_port = 443
             to_port = 443
             protocol = "tcp"
         }
-        ingress_nodes_ephemeral_ports_tcp = {
-            description                = "Nodes on ephemeral ports"
-            protocol                   = "tcp"
-            from_port                  = 1025
-            to_port                    = 65535
-            type                       = "ingress"
-        }
     }
-    worker_node_security_group_rules = {
-        ingress_self_all = {
-            description = "Node to node all ports/protocols"
-            protocol    = "-1"
-            from_port   = 0
-            to_port     = 0
-            type        = "ingress"
-            self        = true
-        } 
-        ingress_cluster_443 = {
-            description                   = "Cluster API to node groups"
-            type                          = "ingress"
-            from_port                     = 443
-            to_port                       = 443
-            protocol                      = "tcp"
-        }
+    # node_security_group_additional_rules is needed for pods in other nodes(by karpenter) to communicate.
+    node_security_group_essential_rules = {
         ingress_cluster_kubelet = {
-            description = "Cluster API to node kubelets"
+            description = "Allow kubelet API"
             type = "ingress"
             from_port = 10250
             to_port = 10250
             protocol = "tcp"
-        }
-        ingress_self_coredns_tcp = {
-            description = "Node to node CoreDNS"
-            type        = "ingress"
-            from_port   = 53
-            to_port     = 53
-            protocol    = "tcp"
-            self        = true
-        }
-        ingress_self_coredns_udp = {
-            description = "Node to node CoreDNS UDP"
-            type        = "ingress"
-            from_port   = 53
-            to_port     = 53
-            protocol    = "udp"
-            self        = true
-        }
-        ingress_nodes_ephemeral = {
-            description = "Node to node ingress on ephemeral ports"
-            type        = "ingress"
-            from_port   = 1025
-            to_port     = 65535
-            protocol    = "tcp"
-            self        = true
-        }
-        # metrics-server
-        ingress_cluster_4443_webhook = {
-            description = "Cluster API to node 4443/tcp webhook"
-            type        = "ingress"
-            from_port   = 4443
-            to_port     = 4443
-            protocol    = "tcp"
-        }
-        # prometheus-adapter
-        ingress_cluster_6443_webhook = {
-            description                   = "Cluster API to node 6443/tcp webhook"
-            protocol                      = "tcp"
-            from_port                     = 6443
-            to_port                       = 6443
-            type                          = "ingress"
-        }
-        # Karpenter
-        ingress_cluster_8443_webhook = {
-            description = "Cluster API to node 8443/tcp webhook"
-            type        = "ingress"
-            from_port   = 8443
-            to_port     = 8443
-            protocol    = "tcp"
-        }
-        # ALB controller
-        ingress_cluster_9443_webhook = {
-            description = "Cluster API to node 9443/tcp webhook"
-            type        = "ingress"
-            from_port   = 9443
-            to_port     = 9443
-            protocol    = "tcp"
         }
         egress_all = {
             description = "Allow all egress"
@@ -170,10 +112,10 @@ resource "aws_security_group_rule" "control_plane" {
     to_port     = each.value.to_port
     protocol    = each.value.protocol
 
-    source_security_group_id = aws_security_group.worker_node.id
+    source_security_group_id = aws_security_group.node.id
 }
 
-resource "aws_security_group" "worker_node" {
+resource "aws_security_group" "node" {
     name = "${var.cluster_name}-node-sg"
     description = "Shared security group of worker nodes"
     vpc_id      = var.vpc_id
@@ -188,9 +130,9 @@ resource "aws_security_group" "worker_node" {
     )
 }
 
-resource "aws_security_group_rule" "worker_node" {
-    for_each = { for k, v in local.worker_node_security_group_rules : k => v }
-    security_group_id = aws_security_group.worker_node.id
+resource "aws_security_group_rule" "node" {
+    for_each = { for k, v in (merge(local.node_security_group_essential_rules, var.node_security_group_additional_rules)) : k => v }
+    security_group_id = aws_security_group.node.id
 
     description = each.value.description
     type        = each.value.type
@@ -218,8 +160,22 @@ resource "aws_eks_cluster" "this" {
     depends_on = [
         aws_iam_role_policy_attachment.eks_cluster,
         aws_security_group_rule.control_plane,
-        aws_security_group_rule.worker_node
+        aws_security_group_rule.node
     ]
+}
+
+resource "aws_security_group_rule" "eks_cluster" {
+    for_each = { for k, v in local.cluster_security_group_rules : k => v }
+
+    security_group_id = aws_eks_cluster.this.vpc_config[0].cluster_security_group_id
+
+    description       = lookup(each.value, "description", null)
+    type              = each.value.type
+    from_port         = each.value.from_port
+    to_port           = each.value.to_port
+    protocol          = each.value.protocol
+
+    source_security_group_id = aws_security_group.node.id
 }
 
 data "tls_certificate" "eks_cluster" {
@@ -282,7 +238,7 @@ resource "aws_eks_node_group" "this" {
           value  = try(taint.value.value, null)
           effect = taint.value.effect
         }
-}
+    }
     labels = var.node_group_labels
 
     depends_on = [aws_iam_role_policy_attachment.eks_node_group]
@@ -323,7 +279,7 @@ resource "kubernetes_config_map_v1" "aws_auth" {
                 ]}
         ])
     }
-    }
+}
 
 ################################################################################
 # Karpenter
@@ -419,6 +375,28 @@ resource "helm_release" "karpenter_controller" {
             karpenter_batch     = var.karpenter_batch
             cluster_name        = var.cluster_name
             cluster_endpoint    = aws_eks_cluster.this.endpoint
+        })
+    ]
+    depends_on = [aws_eks_node_group.this]
+}
+
+################################################################################
+# Kubernetes Metrics Server
+# https://artifacthub.io/packages/helm/metrics-server/metrics-server
+################################################################################
+resource "helm_release" "metrics_server" {
+    create_namespace = true
+    namespace        = "kube-system"
+    name             = "metrics-server"
+
+    repository = "https://kubernetes-sigs.github.io/metrics-server/"
+    chart      = "metrics-server"
+    version    = var.metrics_server_version
+
+    values = [
+        templatefile("${path.module}/templates/metrics_server_values.tftpl", {
+            replicas        = var.metrics_server_replicas
+            node_group_name = aws_eks_node_group.this.node_group_name
         })
     ]
     depends_on = [aws_eks_node_group.this]
