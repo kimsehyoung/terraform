@@ -18,10 +18,11 @@ locals {
             })
         }
     }
-    # Rules not added due to shared cluster_security_group for control communications between control plane and nodes(node group).
-    # Karpenter webhook: 8443/tcp
-    # AWS Load Balancer Controller: 9443/tcp
-    # Kubernetes metrics server: 4443/tcp
+    # 'cluster_security_group_rules' will be added to 'Cluster security group', and nodes(by node group) use the SG.
+    # This list of rules doesn't be added because the 'cluster_security_group' is shared between 'control plane' and nodes(by node group).
+    # - Karpenter webhook: 8443/tcp
+    # - AWS Load Balancer Controller: 9443/tcp
+    # - Kubernetes metrics server: 4443/tcp
     cluster_security_group_rules = {
         ingress_self_coredns_tcp = {
             description = "Allow CoreDNS TCP from nodes(by karpenter) to nodes(by node group) for service discovery"
@@ -47,10 +48,11 @@ locals {
             protocol = "tcp"
         }
     }
-    # node_security_group_additional_rules is needed for pods in other nodes(by karpenter) to communicate.
+    # 'node_security_group_additional_rules' is needed for communication using protocol such as HTTP(depends on your case) between pods in other nodes(by karpenter).
+    # The default of 'node_security_group_additional_rules' is '1025 ~ 65535' range that can cover most of cases. You can restrict the traffic using this variable. 
     node_security_group_essential_rules = {
         ingress_cluster_kubelet = {
-            description = "Allow kubelet API"
+            description = "Allow kubelet API from controlplane API Server to nodes(by karpenter)"
             type = "ingress"
             from_port = 10250
             to_port = 10250
