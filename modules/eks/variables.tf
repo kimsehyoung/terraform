@@ -43,6 +43,27 @@ variable "endpoint_public_access_cidrs" {
 }
 
 ################################################################################
+# Service Mesh Linkerd2
+################################################################################
+variable "linkerd_crds_version" {
+    description = "The version of Linkerd CRDs (Default to 'the latest release')"
+    type        = string
+    default     = null
+}
+
+variable "linkerd_control_plane_version" {
+    description = "The version of Linkerd control plane (Default to 'the latest release')"
+    type        = string
+    default     = null
+}
+
+variable "linkerd_control_plane_replicas" {
+    description = "The replicas of Linkerd control plane"
+    type        = number
+    default     = 2
+}
+
+################################################################################
 # EKS add-ons
 ################################################################################
 variable "coredns_replicas" {
@@ -76,28 +97,28 @@ variable "private_subnet_ids" {
 }
 
 variable "node_group_instance_types" {
-    description = "List of instance types associated with the EKS Node Group. (Default 't3.medium')"
-    type        = list(string)
-    default     = null
+    description = "List of instance types associated with the EKS Node Group."
+    type        = string
+    default     = "t4g.medium"
 }
 
 variable "node_group_ami_type" {
     description = "Type of AMI associated with the EKS Node Group"
     type        = string
-    default     = null
+    default     = "AL2_ARM_64"
 }
 
 variable "scaling_config" {
-    description = "Scaling settings of node group that critical components(karpenter) exist"
+    description = "Scaling settings of node group that critical components(karpenter, linkerd, coredns...) exist"
     type        = object({
         desired_size = number
         min_size     = number
         max_size     = number
     })
     default     = {
-        desired_size = 1
-        min_size     = 1
-        max_size     = 2
+        desired_size = 2
+        min_size     = 2
+        max_size     = 4
     }
 }
 
@@ -108,17 +129,17 @@ variable "node_group_disk_size" {
 }
 
 variable "node_group_labels" {
-    description = "Node Group's labels that that critical components(karpenter) exist"
+    description = "Node Group's labels that that critical components(karpenter, linkerd, coredns...) exist"
     type        = map(string)
     default     = null
 }
 
 variable "node_group_taints" {
-    description = "Node Group's taints that critical components(karpenter) exist"
+    description = "Node Group's taints that critical components(karpenter, linkerd, coredns...) exist"
     type        = list(any)
     default     = [{
-        key    = "karpenter"
-        effect = "NO_SCHEDULE"
+        key    = "CriticalAddonsOnly"
+        effect = "NO_EXECUTE"
     }]
 }
 

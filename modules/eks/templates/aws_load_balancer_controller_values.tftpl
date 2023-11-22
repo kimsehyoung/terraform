@@ -26,7 +26,7 @@ affinity:
           - ${node_group_name}
 
 tolerations:
-  - key: karpenter
+  - key: CriticalAddonsOnly
     operator: Exists
 
 topologySpreadConstraints:

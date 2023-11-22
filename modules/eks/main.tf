@@ -24,14 +24,14 @@ locals {
     # - AWS Load Balancer Controller: 9443/tcp
     # - Kubernetes metrics server: 4443/tcp
     cluster_security_group_rules = {
-        ingress_self_coredns_tcp = {
+        ingress_coredns_tcp = {
             description = "Allow CoreDNS TCP from nodes(by karpenter) to nodes(by node group) for service discovery"
             type        = "ingress"
             from_port   = 53
             to_port     = 53
             protocol    = "tcp"
         }
-        ingress_self_coredns_udp = {
+        ingress_coredns_udp = {
             description = "Allow CoreDNS UDP from nodes(by karpenter) to nodes(by node group) for service discovery"
             type        = "ingress"
             from_port   = 53
@@ -196,6 +196,100 @@ resource "aws_iam_openid_connect_provider" "eks_cluster" {
 }
 
 ################################################################################
+# Service Mesh Linkerd2
+# https://linkerd.io/2.14/tasks/automatically-rotating-control-plane-tls-credentials/
+################################################################################
+resource "tls_private_key" "ca" {
+    algorithm   = "ECDSA"
+    ecdsa_curve = "P256"
+}
+
+resource "tls_self_signed_cert" "ca" {
+    private_key_pem         = tls_private_key.ca.private_key_pem
+    validity_period_hours   = 48
+    early_renewal_hours     = 25
+    is_ca_certificate       = true
+
+    allowed_uses = [
+        "cert_signing",
+        "crl_signing",
+        "server_auth",
+        "client_auth"
+    ]
+    subject {
+        common_name = "identity.linkerd.cluster.local"
+    }
+}
+
+resource "tls_private_key" "issuer" {
+    algorithm   = "ECDSA"
+    ecdsa_curve = "P256"
+}
+
+resource "tls_cert_request" "issuer" {
+    private_key_pem = tls_private_key.issuer.private_key_pem
+    subject {
+        common_name = "identity.linkerd.cluster.local"
+    }
+}
+
+resource "tls_locally_signed_cert" "issuer" {
+    cert_request_pem      = tls_cert_request.issuer.cert_request_pem
+    ca_private_key_pem    = tls_private_key.ca.private_key_pem
+    ca_cert_pem           = tls_self_signed_cert.ca.cert_pem
+    is_ca_certificate     = true
+    validity_period_hours = 4
+
+    allowed_uses = [
+        "cert_signing",
+        "crl_signing",
+        "server_auth",
+        "client_auth"
+    ]
+}
+
+resource "helm_release" "linkerd_crds" {
+    name       = "linkerd-crds"
+
+    repository = "https://helm.linkerd.io/stable"
+    chart      = "linkerd-crds"
+    version    = var.linkerd_crds_version
+
+    depends_on = [aws_eks_node_group.this]
+}
+
+resource "helm_release" "linkerd_control_plane" {
+    create_namespace = true
+    namespace        = "linkerd"
+    name             = "linkerd-control-plane"
+
+    repository = "https://helm.linkerd.io/stable"
+    chart      = "linkerd-control-plane"
+    version    = var.linkerd_control_plane_version
+
+    set_sensitive {
+        name = "identityTrustAnchorsPEM"
+        value = tls_self_signed_cert.ca.cert_pem
+    }
+    set {
+        name  = "identity.issuer.tls.crtPEM"
+        value = tls_locally_signed_cert.issuer.cert_pem
+    }
+    set {
+        name  = "identity.issuer.tls.keyPEM"
+        value = tls_private_key.issuer.private_key_pem
+    }
+
+    values = [
+        templatefile("${path.module}/templates/linkerd_control_plane_values.tftpl", {
+            replicas            = var.linkerd_control_plane_replicas
+            node_group_name     = aws_eks_node_group.this.node_group_name
+        })
+    ]
+    depends_on = [helm_release.linkerd_crds]
+}
+
+################################################################################
 # EKS Node Group
 # https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/eks_node_group
 ################################################################################
@@ -224,7 +318,8 @@ resource "aws_eks_node_group" "this" {
     node_role_arn   = aws_iam_role.eks_node_group.arn
     subnet_ids      = var.private_subnet_ids
 
-    instance_types  = var.node_group_instance_types
+    capacity_type   = "ON_DEMAND"
+    instance_types  = [var.node_group_instance_types]
     ami_type        = var.node_group_ami_type
     disk_size       = var.node_group_disk_size
 

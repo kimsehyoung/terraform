@@ -1,0 +1,18 @@
+controllerReplicas: ${replicas}
+enablePodAntiAffinity: true
+
+nodeAffinity:
+  requiredDuringSchedulingIgnoredDuringExecution:
+    nodeSelectorTerms:
+    - matchExpressions:
+      - key: karpenter.sh/nodepool
+        operator: DoesNotExist
+    - matchExpressions:
+      - key: eks.amazonaws.com/nodegroup
+        operator: In
+        values:
+        - ${node_group_name}
+
+tolerations:
+  - key: CriticalAddonsOnly
+    operator: Exists

@@ -1,5 +1,5 @@
 # Terraform
-- [Summary](#summary)
+- [Overview](#overview)
 - [Architecture](#architecture)
 - [References](#references)
     - [The latest news](#the-latest-news)
@@ -9,19 +9,32 @@
     - [Additional commands](#additional-commands)
 
 
-## Summary
+## Overview
 
-EKS Karpenter를 중심으로 하는 Terraform 프로젝트
+EKS Karpenter, Linkerd(service mesh)를 중심으로 하는 Terraform 프로젝트
 - 복잡한 AWS community 모듈이 아닌, 필요한 기능을 작성하여 사용성을 높임
 - 모듈 개발로 EKS Karpenter의 구조를 이해하고 인프라를 구축
 - Karpenter는 v0.32.0 부터 [beta로 전환](https://aws.amazon.com/ko/blogs/containers/karpenter-graduates-to-beta/)
 
 **AWS modules**
-- VPC
-- EKS Karpenter
-- RDS
-- EFS
+- vpc
+- eks
+    - karpenter, linkerd, aws-load-balancer-controller
+- rds
+- efs
 
+**Environtments**
+
+Tools
+- terraform v1.6.2
+- helm v3.13.1
+- kubectl v1.28.2
+- linkerd 2.14.4
+
+Infra
+- kubernetes 1.28
+- karpenter v0.32.1
+- aws load balancer controller 1.6.2
 
 ## Architecture
 
@@ -90,4 +103,8 @@ export TF_LOG=DEBUG # INFO DEBUG
 
 # Configure kube config to access kubernetes api server using cli
 aws eks --region ap-northeast-2 update-kubeconfig --name hello
+
+# Linkerd
+linkerd check
+
 ```

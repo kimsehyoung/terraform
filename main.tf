@@ -1,5 +1,5 @@
 locals {
-    aws_profile = "profile"
+    aws_profile = "dongle"
     aws_region  = "ap-northeast-2"
     name        = "hello"
     vpc_cidr    = "10.0.0.0/16"
@@ -35,8 +35,7 @@ module "eks" {
     intra_subnet_ids   = module.vpc.intra_subnets.ids
     private_subnet_ids = module.vpc.private_subnets.ids
     
-    node_group_instance_types = ["t4g.medium"]
-    node_group_ami_type       = "AL2_ARM_64"
+    node_group_labels         = { "nodegroup-name" = "${local.name}-ng" }
 
     karpenter_version = "v0.32.1"
     aws_load_balancer_controller_version = "1.6.2"
@@ -100,15 +99,13 @@ module "rds" {
 module "efs" {
     source = "./modules/efs"
 
-    name = local.name
-    cluster_name = module.eks.cluster_name
-
+    cluster_name       = module.eks.cluster_name
     vpc_id             = module.vpc.vpc_id
     vpc_cidr           = local.vpc_cidr
     private_subnet_ids = module.vpc.private_subnets.ids
 
-    node_group_name          = module.eks.node_group_name
     oidc_provider            = module.eks.oidc_provider
     oidc_provider_arn        = module.eks.oidc_provider_arn
+
     depends_on = [module.eks]
 }
