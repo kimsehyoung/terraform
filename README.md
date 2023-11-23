@@ -1,6 +1,7 @@
 # Terraform
 - [Overview](#overview)
 - [Architecture](#architecture)
+- [Other Projects](#other-projects)
 - [References](#references)
     - [The latest news](#the-latest-news)
     - [VPC and Subnets](#vpc-and-subnets)
@@ -43,7 +44,7 @@ Infra
     - 여러 AZ에 교차 계정 ENI 생성됨 (AWS 영역의 Control Plane과 사용자 VPC의 네트워크 통신을 위해)
     - EKS cluster 생성 시, 사용되는 subnet
 - Private
-    - nodes(by node group) -> 주요 파드(karpenter...)가 생성됨 (다이어그램 Deployments 참고)
+    - nodes(by node group) -> 주요 파드(karpenter, linkerd controlplane, coredns...)가 생성됨 (다이어그램 Deployments 참고)
     - nodes(by karpenter)
 - Database
 - public
@@ -54,20 +55,28 @@ Infra
 - `coredns` 53
 - `API server` 443
 - `Kubelet` 10250
+- `linkerd control plane` 8080, 8090
 
-| Security Group    | Inbound rules  | Source          |
-| :---------------- | :------------- | --------------- |
-| `eks-cluster-sg`  | 53/TCP, 53/UDP | node-sg         |
-| ...               | All            | eks-cluster-sg  |
-| `controlplane-sg` | 443            | node-sg         |
-| `node-sg`         | 10250          | controlplane-sg |
-| ...               | 1025 ~ 65535   | node-sg         |
-|                   |                |                 |
+| Security Group    | Inbound rules      | Source          |
+| :---------------- | :----------------- | --------------- |
+| `eks-cluster-sg`  | 53/TCP, 53/UDP     | node-sg         |
+| ...               | 8080/TCP, 8090/TCP | node-sg         |
+| ...               | All                | eks-cluster-sg  |
+| `controlplane-sg` | 443                | node-sg         |
+| `node-sg`         | 10250              | controlplane-sg |
+| ...               | 1025 ~ 65535       | node-sg         |
+|                   |                    |                 |
 
 
 ![Terraform Architecrue](./docs/architecture/terraform.drawio.png)
 
 
+
+## Other Projects
+
+추후에 같이 진행될 프로젝트
+- https://github.com/kimsehyoung/whisper
+- https://github.com/kimsehyoung/dongle
 
 ## References
 

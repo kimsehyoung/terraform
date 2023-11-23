@@ -24,6 +24,20 @@ locals {
     # - AWS Load Balancer Controller: 9443/tcp
     # - Kubernetes metrics server: 4443/tcp
     cluster_security_group_rules = {
+        ingress_linkerd_identity = {
+            description = "Allow linkerd-identity"
+            type = "ingress"
+            from_port = 8080
+            to_port = 8080
+            protocol = "tcp"
+        }
+        ingress_linkerd_policy = {
+            description = "Allow linkerd-policy"
+            type = "ingress"
+            from_port = 8090
+            to_port = 8090
+            protocol = "tcp"
+        }
         ingress_coredns_tcp = {
             description = "Allow CoreDNS TCP from nodes(by karpenter) to nodes(by node group) for service discovery"
             type        = "ingress"
