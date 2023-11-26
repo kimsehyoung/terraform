@@ -111,7 +111,7 @@ aws eks describe-addon-configuration --addon-name aws-efs-csi-driver --addon-ver
 export TF_LOG=DEBUG # INFO DEBUG
 
 # Configure kube config to access kubernetes api server using cli
-aws eks --region ap-northeast-2 update-kubeconfig --name hello
+aws eks --region ap-northeast-2 update-kubeconfig --name dongle
 
 # Linkerd
 linkerd check

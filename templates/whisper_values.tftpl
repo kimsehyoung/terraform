@@ -1,0 +1,15 @@
+replicaCount: 0
+
+affinity:
+  nodeAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      nodeSelectorTerms:
+        - matchExpressions:
+          - key: type
+            operator: In
+            values:
+            - ${nodepool_name}
+          - key: kubernetes.io/arch
+            operator: In
+            values:
+            - arm64

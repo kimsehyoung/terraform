@@ -1,7 +1,7 @@
 locals {
-    aws_profile = "dongle"
+    aws_profile = "profile"
     aws_region  = "ap-northeast-2"
-    name        = "hello"
+    name        = "dongle"
     vpc_cidr    = "10.0.0.0/16"
     
     additional_tags = {
@@ -46,35 +46,39 @@ module "eks" {
 
 ################################################################################
 # Test
-resource "kubectl_manifest" "karpenter_nodeclass" {
-    yaml_body = templatefile("./templates/karpenter_nodeclass.tftpl", {
-        name = "${local.name}-node"
-        ami_family = "AL2"
-        role = module.eks.node_role_name
-        selector_tag = module.eks.cluster_name
-    })
-    depends_on = [module.eks]
+resource "helm_release" "karpenter_node" {
+    create_namespace = true
+    namespace        = "karpenter"
+    name             = "karpenter-node"
+
+    repository = "https://kimsehyoung.github.io/helm-charts/karpenter-node"
+    chart      = "karpenter-node"
+    version    = "0.32.2"
+
+    values = [
+        templatefile("${path.module}/templates/karpenter_node_values.tftpl", {
+            cluster_name = module.eks.cluster_name
+            nodepool_name = "multi-arch-general"
+        })
+    ]
 }
 
-resource "kubectl_manifest" "karpenter_nodepool" {
-    yaml_body = templatefile("./templates/karpenter_nodepool.tftpl", {
-        name = "${local.name}-general"
-        nodeclass_name = kubectl_manifest.karpenter_nodeclass.name
-        limit_cpu = "30"
-        limit_memory = "64Gi"
-    })
-    depends_on = [module.eks]
-}
+resource "helm_release" "whisper" {
+    create_namespace = true
+    namespace        = "dongle"
+    name             = "whisper"
 
-resource "kubectl_manifest" "deployment_test" {
-    yaml_body = templatefile("./templates/deployment_test.tftpl", {
-        replicas = 0
-        label_key = "type"
-        label_value = kubectl_manifest.karpenter_nodepool.name
-    })
+    repository = "https://kimsehyoung.github.io/whisper/helm-charts"
+    chart      = "whisper"
+    version    = "1.0.0"
+
+    values = [
+        templatefile("${path.module}/templates/whisper_values.tftpl", {
+            nodepool_name = "multi-arch-general"
+        })
+    ]
 }
 ################################################################################
-
 
 module "rds" {
     source = "./modules/rds"

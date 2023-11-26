@@ -263,6 +263,8 @@ resource "tls_locally_signed_cert" "issuer" {
 }
 
 resource "helm_release" "linkerd_crds" {
+    create_namespace = true
+    namespace  = "linkerd"
     name       = "linkerd-crds"
 
     repository = "https://helm.linkerd.io/stable"
@@ -273,7 +275,6 @@ resource "helm_release" "linkerd_crds" {
 }
 
 resource "helm_release" "linkerd_control_plane" {
-    create_namespace = true
     namespace        = "linkerd"
     name             = "linkerd-control-plane"
 
